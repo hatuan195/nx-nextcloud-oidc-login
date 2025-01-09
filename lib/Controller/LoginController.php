@@ -173,6 +173,12 @@ class LoginController extends Controller
                 'token' => $token,
             ], false);
     
+            // Workaround to create user files folder. Remove it later.
+            \OC::$server->get(IRootFolder::class)->getUserFolder($existingUser->getUID());
+
+            // Prevent being asked to change password
+            $this->session->set('last-password-confirm', \OC::$server->get(ITimeFactory::class)->getTime());
+
             return new RedirectResponse($this->urlGenerator->getAbsoluteURL('/'));
         }
     
