@@ -6,6 +6,7 @@ require_once __DIR__.'/../../3rdparty/autoload.php';
 
 use OCP\IConfig;
 use OCP\ISession;
+use Psr\Log\LoggerInterface;
 
 class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
 {
@@ -28,6 +29,7 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
     private ISession $session;
     private IConfig $config;
     private string $appName;
+    private LoggerInterface $logger;
 
     private int $publicKeyCachingTime;
     private int $minTimeBetweenJwksRequests;
@@ -37,9 +39,11 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
     public function __construct(
         string $appName,
         ISession $session,
-        IConfig $config
+        IConfig $config,
+        LoggerInterface $logger
     ) {
         $this->appName = $appName;
+        $this->logger = $logger;
         $this->session = $session;
         $this->config = $config;
 
@@ -85,7 +89,7 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
             // As we are caching the JWKs, we might not know the newest ones.
             // Thus we try verifying the signature first, but if that didn't work because the
             // key couldn't be found, we fetch new ones and try again.
-            \OC::$server->getLogger()->debug("Error when verifying jwt {$e->getMessage()}");
+            $this->logger->debug("Error when verifying jwt {$e->getMessage()}");
             if (false !== strpos($e->getMessage(), 'Unable to find a key')) {
                 $this->getJWKs(true);
 
@@ -269,7 +273,7 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
         // A successful response must use the 200 OK status code, so don't cache non-200 responses
         // https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationResponse
         if (200 !== $this->getResponseCode()) {
-            \OC::$server->getLogger()->warning('Got non-200 response code when querying well-known', ['app' => $this->appName]);
+            $this->logger->warning('Got non-200 response code when querying well-known', ['app' => $this->appName]);
 
             return $resp;
         }
@@ -302,7 +306,7 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
 
         // Avoid DoSing the provider
         if (time() - $lastFetched < $this->minTimeBetweenJwksRequests) {
-            \OC::$server->getLogger()->warning('Too many update signing key requests', ['app' => $this->appName]);
+            $this->logger->warning('Too many update signing key requests', ['app' => $this->appName]);
 
             throw new \Jumbojett\OpenIDConnectClientException('Too many update signing key requests');
         }
@@ -314,7 +318,7 @@ class OpenIDConnectClient extends \Jumbojett\OpenIDConnectClient
         // As we didn't find any specification in the standard, what 200 code it should exactly be,
         // we accept the complete range.
         if ($this->getResponseCode() < 200 || $this->getResponseCode() >= 300) {
-            \OC::$server->getLogger()->warning('Got non-200 response code when querying JWKs', ['app' => $this->appName]);
+            $this->logger->warning('Got non-200 response code when querying JWKs', ['app' => $this->appName]);
 
             return $resp;
         }

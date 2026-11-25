@@ -5,6 +5,9 @@ namespace OCA\NxOIDCLogin\Controller;
 use OCA\NxOIDCLogin\Provider\OpenIDConnectClient;
 use OCA\NxOIDCLogin\Service\LoginService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\AppFramework\Http\Attribute\UseSession;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Files\IRootFolder;
@@ -56,6 +59,9 @@ class LoginController extends Controller
      *
      * @UseSession
      */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    #[UseSession]
     public function oidc(): RedirectResponse
     {
         $callbackUrl = $this->urlGenerator->linkToRouteAbsolute($this->appName.'.login.oidc');
@@ -85,8 +91,20 @@ class LoginController extends Controller
             }
 
             // Show error page
-            \OC_Template::printErrorPage($e->getMessage());
+            $this->printErrorPage($e->getMessage());
         }
+    }
+
+    /**
+     * OC_Template::printErrorPage bị đánh dấu lỗi thời từ bản 32; ITemplateManager chỉ có từ bản 32.
+     * Cả hai đường đều kết thúc tiến trình (exit) sau khi in trang lỗi.
+     */
+    private function printErrorPage(string $message): void
+    {
+        if (interface_exists(\OCP\Template\ITemplateManager::class)) {
+            \OCP\Server::get(\OCP\Template\ITemplateManager::class)->printErrorPage($message);
+        }
+        \OC_Template::printErrorPage($message);
     }
 
     private function prepareLogout(OpenIDConnectClient $oidc): void
@@ -175,10 +193,10 @@ class LoginController extends Controller
             ], false);
     
             // Workaround to create user files folder. Remove it later.
-            \OC::$server->get(IRootFolder::class)->getUserFolder($existingUser->getUID());
+            \OCP\Server::get(IRootFolder::class)->getUserFolder($existingUser->getUID());
 
             // Prevent being asked to change password
-            $this->session->set('last-password-confirm', \OC::$server->get(ITimeFactory::class)->getTime());
+            $this->session->set('last-password-confirm', \OCP\Server::get(ITimeFactory::class)->getTime());
 
             // Go to redirection URI
             if ($redirectUrl = $this->request->getParam('login_redirect_url')) {
@@ -201,10 +219,10 @@ class LoginController extends Controller
         [$user, $password] = $this->loginService->login($profile);
 
         // Workaround to create user files folder. Remove it later.
-        \OC::$server->get(IRootFolder::class)->getUserFolder($user->getUID());
+        \OCP\Server::get(IRootFolder::class)->getUserFolder($user->getUID());
 
         // Prevent being asked to change password
-        $this->session->set('last-password-confirm', \OC::$server->get(ITimeFactory::class)->getTime());
+        $this->session->set('last-password-confirm', \OCP\Server::get(ITimeFactory::class)->getTime());
 
         // Go to redirection URI
         if ($redirectUrl = $this->request->getParam('login_redirect_url')) {

@@ -10,7 +10,6 @@ use OCP\EventDispatcher\IEventListener;
 use OCP\IConfig;
 use OCP\ISession;
 use OCP\IUserSession;
-use OCP\SabrePluginEvent;
 use Psr\Log\LoggerInterface;
 use Sabre\DAV\Auth\Backend\AbstractBearer;
 use Sabre\DAV\Auth\Plugin;
@@ -77,8 +76,7 @@ class BearerAuthBackend extends AbstractBearer implements IEventListener
      */
     public function handle(Event $event): void
     {
-        if (!$event instanceof SabrePluginAuthInitEvent
-            && !$event instanceof SabrePluginEvent) {
+        if (!$event instanceof SabrePluginAuthInitEvent) {
             return;
         }
 

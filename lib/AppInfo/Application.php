@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OCA\NxOIDCLogin\AppInfo;
 
 use OC\AppFramework\Utility\ControllerMethodReflector;
+use OCA\DAV\Events\SabrePluginAuthInitEvent;
 use OCA\NxOIDCLogin\OIDCLoginOption;
 use OCA\NxOIDCLogin\WebDAV\BasicAuthBackend;
 use OCA\NxOIDCLogin\WebDAV\BearerAuthBackend;
 use OCP\AppFramework\App;
+use OCP\AppFramework\Http\Attribute\CORS;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
@@ -38,25 +40,10 @@ class Application extends App implements IBootstrap
     {
         $context->registerAlternativeLogin(OIDCLoginOption::class);
 
-        $context->registerEventListener(
-            'OCA\DAV\Connector\Sabre::authInit',
-            BearerAuthBackend::class
-        );
-
-        $context->registerEventListener(
-            'OCA\DAV\Connector\Sabre::addPlugin',
-            BearerAuthBackend::class
-        );
-
-        $context->registerEventListener(
-            'OCA\DAV\Connector\Sabre::authInit',
-            BasicAuthBackend::class
-        );
-
-        $context->registerEventListener(
-            'OCA\DAV\Connector\Sabre::addPlugin',
-            BasicAuthBackend::class
-        );
+        // Dùng sự kiện có kiểu: sự kiện chuỗi 'OCA\DAV\Connector\Sabre::authInit' là đường cũ
+        // (OCP\SabrePluginEvent) và Nextcloud đã phát sự kiện có kiểu ngay sau đó từ bản 26.
+        $context->registerEventListener(SabrePluginAuthInitEvent::class, BearerAuthBackend::class);
+        $context->registerEventListener(SabrePluginAuthInitEvent::class, BasicAuthBackend::class);
     }
 
     public function boot(IBootContext $context): void
@@ -97,7 +84,7 @@ class Application extends App implements IBootstrap
             if ($logoutUrl = $session->get('oidc_logout_url', $noRedirLoginUrl)) {
                 $userSession->listen('\OC\User', 'postLogout', function () use ($logoutUrl, $session) {
                     // Do nothing if this is a CORS request
-                    if ($this->getContainer()->get(ControllerMethodReflector::class)->hasAnnotation('CORS')) {
+                    if ($this->isCorsRequest()) {
                         return;
                     }
 
@@ -156,6 +143,24 @@ class Application extends App implements IBootstrap
 
                 exit;
             }
+        }
+    }
+
+    /**
+     * Yêu cầu hiện tại có đánh dấu CORS không. Từ bản 32 Nextcloud ưu tiên thuộc tính #[CORS]
+     * thay cho chú thích @CORS; ngoài luồng controller thì chưa có phương thức nào được phản chiếu.
+     */
+    private function isCorsRequest(): bool
+    {
+        try {
+            $reflector = $this->getContainer()->get(ControllerMethodReflector::class);
+            if (method_exists($reflector, 'hasAnnotationOrAttribute')) {
+                return $reflector->hasAnnotationOrAttribute('CORS', CORS::class);
+            }
+
+            return $reflector->hasAnnotation('CORS');
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 

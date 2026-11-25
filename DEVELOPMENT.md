@@ -60,3 +60,14 @@ echo "127.0.0.1 oidc" | sudo tee -a /etc/hosts
 ```
 
 You should be able to use the test provider to login now.
+
+## Kiểm tương thích Nextcloud 31–33 (tĩnh)
+
+`tests/check_nc_api.py <thư mục server>` so mã app với mã nguồn Nextcloud đích (lớp `use` còn tồn tại, không gọi `\OC::$server->getXxx()`,
+các phương thức nội bộ app gọi còn đủ). Lấy mã nguồn đích:
+
+    git clone --depth 1 -b stable33 --filter=blob:none --sparse https://github.com/nextcloud/server.git ncsrc33
+    git -C ncsrc33 sparse-checkout set lib/public lib/private lib/base.php apps/dav/lib
+    python3 tests/check_nc_api.py ncsrc33
+
+Bài kiểm này KHÔNG thay cho việc thử đăng nhập thật trên Nextcloud bản sao.

@@ -58,12 +58,12 @@ class LoginService
 
         // get external storage service if available
         $this->storagesService = class_exists('\OCA\Files_External\Service\GlobalStoragesService') ?
-            \OC::$server->get(\OCA\Files_External\Service\GlobalStoragesService::class) : null;
+            \OCP\Server::get(\OCA\Files_External\Service\GlobalStoragesService::class) : null;
     }
 
     public function createOIDCClient(string $callbackUrl = ''): OpenIDConnectClient
     {
-        $oidc = \OC::$server->get(OpenIDConnectClient::class);
+        $oidc = \OCP\Server::get(OpenIDConnectClient::class);
         $oidc->setRedirectURL($callbackUrl);
 
         // set TLS development mode
@@ -172,7 +172,7 @@ class LoginService
     public function completeLogin(IUser $user, string $password): void
     {
         /** @var Session */
-        $userSession = \OC::$server->get(IUserSession::class);
+        $userSession = \OCP\Server::get(IUserSession::class);
 
         /* On the v1 route /remote.php/webdav, a default nextcloud backend
          * tries and fails to authenticate users, then close the session.
